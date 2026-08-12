@@ -1,27 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
-function getSavedTheme() {
-  if (typeof document === "undefined") {
-    return "dark";
-  }
-
-  const cookies = document.cookie.split("; ");
-
-  const themeCookie = cookies.find((cookie) =>
-    cookie.startsWith("theme=")
-  );
-
-  return themeCookie?.split("=")[1] || "dark";
-}
-
 export default function Settings() {
-  const [theme, setTheme] = useState(getSavedTheme);
-
-  function changeTheme(newTheme: string) {
-    setTheme(newTheme);
-
+  function changeTheme(newTheme: "light" | "dark") {
     document.documentElement.classList.remove(
       "light-theme",
       "dark-theme"
@@ -59,33 +39,22 @@ export default function Settings() {
 
             <button
               onClick={() => changeTheme("light")}
-              className={`border rounded px-6 py-3 ${
-                theme === "light"
-                  ? "font-bold ring-2"
-                  : ""
-              }`}
+              className="border rounded px-6 py-3"
             >
               Light
             </button>
 
             <button
               onClick={() => changeTheme("dark")}
-              className={`border rounded px-6 py-3 ${
-                theme === "dark"
-                  ? "font-bold ring-2"
-                  : ""
-              }`}
+              className="border rounded px-6 py-3"
             >
               Dark
             </button>
 
           </div>
 
-          <p className="mt-6">
-            Current theme:{" "}
-            <strong>
-              {theme === "dark" ? "Dark" : "Light"}
-            </strong>
+          <p className="mt-6 text-sm">
+            Your theme preference will be saved for your next visit.
           </p>
 
         </section>
