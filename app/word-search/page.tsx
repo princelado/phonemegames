@@ -40,31 +40,144 @@ const fillers = [
   "ɔ",
 ];
 
+const directions = [
+  { row: 0, col: 1 },
+  { row: 1, col: 0 },
+  { row: 1, col: 1 },
+  { row: 1, col: -1 },
+  { row: 0, col: -1 },
+  { row: -1, col: 0 },
+  { row: -1, col: -1 },
+  { row: -1, col: 1 },
+];
+
 type CellPosition = {
   row: number;
   col: number;
 };
 
-function makeGrid(version: number) {
+function seededRandom(seed: number) {
+  let value = seed + 1;
+
+  return function () {
+    value += 0x6d2b79f5;
+
+    let result = value;
+
+    result = Math.imul(
+      result ^ (result >>> 15),
+      result | 1
+    );
+
+    result ^= result +
+      Math.imul(
+        result ^ (result >>> 7),
+        result | 61
+      );
+
+    return (
+      ((result ^ (result >>> 14)) >>> 0) /
+      4294967296
+    );
+  };
+}
+
+function makeGrid(seed: number) {
   const size = 8;
+
+  const random = seededRandom(seed);
 
   const grid = Array.from({ length: size }, () =>
     Array.from({ length: size }, () => "")
   );
 
-  wordList.forEach((word, rowIndex) => {
-    word.phonemes.forEach((phoneme, colIndex) => {
-      grid[rowIndex][colIndex] = phoneme;
-    });
+  function canPlaceWord(
+    phonemes: string[],
+    startRow: number,
+    startCol: number,
+    rowDirection: number,
+    colDirection: number
+  ) {
+    for (
+      let index = 0;
+      index < phonemes.length;
+      index++
+    ) {
+      const row =
+        startRow + rowDirection * index;
+
+      const col =
+        startCol + colDirection * index;
+
+      if (
+        row < 0 ||
+        row >= size ||
+        col < 0 ||
+        col >= size
+      ) {
+        return false;
+      }
+
+      if (
+        grid[row][col] !== "" &&
+        grid[row][col] !== phonemes[index]
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function placeWord(phonemes: string[]) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const direction =
+        directions[
+          Math.floor(random() * directions.length)
+        ];
+
+      const startRow =
+        Math.floor(random() * size);
+
+      const startCol =
+        Math.floor(random() * size);
+
+      if (
+        canPlaceWord(
+          phonemes,
+          startRow,
+          startCol,
+          direction.row,
+          direction.col
+        )
+      ) {
+        phonemes.forEach((phoneme, index) => {
+          const row =
+            startRow + direction.row * index;
+
+          const col =
+            startCol + direction.col * index;
+
+          grid[row][col] = phoneme;
+        });
+
+        return;
+      }
+    }
+  }
+
+  wordList.forEach((word) => {
+    placeWord(word.phonemes);
   });
 
   for (let row = 0; row < size; row++) {
     for (let col = 0; col < size; col++) {
       if (!grid[row][col]) {
         const fillerIndex =
-          (row * size + col + version) % fillers.length;
+          Math.floor(random() * fillers.length);
 
-        grid[row][col] = fillers[fillerIndex];
+        grid[row][col] =
+          fillers[fillerIndex];
       }
     }
   }
@@ -73,37 +186,81 @@ function makeGrid(version: number) {
 }
 
 export default function WordSearch() {
-  const [gridVersion, setGridVersion] = useState(0);
-  const [selectedCells, setSelectedCells] = useState<CellPosition[]>([]);
-  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [gridVersion, setGridVersion] =
+    useState(0);
+
+  const [selectedCells, setSelectedCells] =
+    useState<CellPosition[]>([]);
+
+  const [foundWords, setFoundWords] =
+    useState<string[]>([]);
 
   const grid = useMemo(
     () => makeGrid(gridVersion),
     [gridVersion]
   );
 
-  function handleCellClick(row: number, col: number) {
-    const alreadySelected = selectedCells.some(
-      (cell) => cell.row === row && cell.col === col
-    );
+  function handleCellClick(
+    row: number,
+    col: number
+  ) {
+    const alreadySelected =
+      selectedCells.some(
+        (cell) =>
+          cell.row === row &&
+          cell.col === col
+      );
 
     if (alreadySelected) {
       return;
     }
 
     if (selectedCells.length > 0) {
-      const lastCell = selectedCells[selectedCells.length - 1];
+      const lastCell =
+        selectedCells[
+          selectedCells.length - 1
+        ];
 
-      const rowDifference = Math.abs(row - lastCell.row);
-      const colDifference = Math.abs(col - lastCell.col);
+      const rowDifference =
+        row - lastCell.row;
+
+      const colDifference =
+        col - lastCell.col;
 
       const isAdjacent =
-        rowDifference <= 1 &&
-        colDifference <= 1 &&
-        !(rowDifference === 0 && colDifference === 0);
+        Math.abs(rowDifference) <= 1 &&
+        Math.abs(colDifference) <= 1 &&
+        !(
+          rowDifference === 0 &&
+          colDifference === 0
+        );
 
       if (!isAdjacent) {
         return;
+      }
+
+      if (selectedCells.length >= 2) {
+        const previousCell =
+          selectedCells[
+            selectedCells.length - 2
+          ];
+
+        const previousRowDirection =
+          lastCell.row -
+          previousCell.row;
+
+        const previousColDirection =
+          lastCell.col -
+          previousCell.col;
+
+        if (
+          rowDifference !==
+            previousRowDirection ||
+          colDifference !==
+            previousColDirection
+        ) {
+          return;
+        }
       }
     }
 
@@ -114,18 +271,26 @@ export default function WordSearch() {
 
     setSelectedCells(newSelection);
 
-    const selectedPhonemes = newSelection
-      .map((cell) => grid[cell.row][cell.col])
-      .join("");
+    const selectedPhonemes =
+      newSelection
+        .map(
+          (cell) =>
+            grid[cell.row][cell.col]
+        )
+        .join("");
 
-    const matchedWord = wordList.find(
-      (word) =>
-        word.phonemes.join("") === selectedPhonemes
-    );
+    const matchedWord =
+      wordList.find(
+        (word) =>
+          word.phonemes.join("") ===
+          selectedPhonemes
+      );
 
     if (
       matchedWord &&
-      !foundWords.includes(matchedWord.english)
+      !foundWords.includes(
+        matchedWord.english
+      )
     ) {
       setFoundWords([
         ...foundWords,
@@ -143,7 +308,10 @@ export default function WordSearch() {
   }
 
   function generateNewGrid() {
-    setGridVersion((value) => value + 1);
+    setGridVersion(
+      (value) => value + 1
+    );
+
     setSelectedCells([]);
     setFoundWords([]);
   }
@@ -153,7 +321,10 @@ export default function WordSearch() {
       .flat()
       .map(
         (phoneme, index) =>
-          `<button class="cell" data-index="${index}">${phoneme}</button>`
+          `<button
+            class="cell"
+            data-index="${index}"
+          >${phoneme}</button>`
       )
       .join("");
 
@@ -161,7 +332,8 @@ export default function WordSearch() {
       .map(
         (word) =>
           `<li id="word-${word.english}">
-            ${word.english} - ${word.phonemes.join(" ")}
+            ${word.english} -
+            ${word.phonemes.join(" ")}
           </li>`
       )
       .join("");
@@ -173,7 +345,8 @@ export default function WordSearch() {
       }))
     );
 
-    const flatGrid = JSON.stringify(grid.flat());
+    const flatGrid =
+      JSON.stringify(grid.flat());
 
     const html = `
 <!DOCTYPE html>
@@ -200,7 +373,8 @@ export default function WordSearch() {
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(8, 45px);
+      grid-template-columns:
+        repeat(8, 45px);
       gap: 4px;
       justify-content: center;
       margin: 30px 0;
@@ -243,7 +417,9 @@ export default function WordSearch() {
   <h1>Phoneme Word Search</h1>
 
   <p>
-    Click neighbouring phonemes in order to find each word.
+    Click neighbouring phonemes
+    in a straight line to find
+    each word.
   </p>
 
   <div class="grid">
@@ -270,74 +446,157 @@ export default function WordSearch() {
     let selected = [];
     let foundWords = [];
 
-    const cells = document.querySelectorAll(".cell");
+    const cells =
+      document.querySelectorAll(".cell");
 
     cells.forEach((cell) => {
-      cell.addEventListener("click", () => {
-        const index = Number(cell.dataset.index);
+      cell.addEventListener(
+        "click",
+        () => {
+          const index =
+            Number(cell.dataset.index);
 
-        if (selected.includes(index)) {
-          return;
-        }
-
-        const row = Math.floor(index / 8);
-        const col = index % 8;
-
-        if (selected.length > 0) {
-          const lastIndex = selected[selected.length - 1];
-
-          const lastRow = Math.floor(lastIndex / 8);
-          const lastCol = lastIndex % 8;
-
-          const rowDifference =
-            Math.abs(row - lastRow);
-
-          const colDifference =
-            Math.abs(col - lastCol);
-
-          const isAdjacent =
-            rowDifference <= 1 &&
-            colDifference <= 1 &&
-            !(rowDifference === 0 && colDifference === 0);
-
-          if (!isAdjacent) {
+          if (
+            selected.includes(index)
+          ) {
             return;
           }
+
+          const row =
+            Math.floor(index / 8);
+
+          const col =
+            index % 8;
+
+          if (selected.length > 0) {
+            const lastIndex =
+              selected[
+                selected.length - 1
+              ];
+
+            const lastRow =
+              Math.floor(
+                lastIndex / 8
+              );
+
+            const lastCol =
+              lastIndex % 8;
+
+            const rowDifference =
+              row - lastRow;
+
+            const colDifference =
+              col - lastCol;
+
+            const isAdjacent =
+              Math.abs(
+                rowDifference
+              ) <= 1 &&
+              Math.abs(
+                colDifference
+              ) <= 1 &&
+              !(
+                rowDifference === 0 &&
+                colDifference === 0
+              );
+
+            if (!isAdjacent) {
+              return;
+            }
+
+            if (
+              selected.length >= 2
+            ) {
+              const previousIndex =
+                selected[
+                  selected.length - 2
+                ];
+
+              const previousRow =
+                Math.floor(
+                  previousIndex / 8
+                );
+
+              const previousCol =
+                previousIndex % 8;
+
+              const previousRowDirection =
+                lastRow -
+                previousRow;
+
+              const previousColDirection =
+                lastCol -
+                previousCol;
+
+              if (
+                rowDifference !==
+                  previousRowDirection ||
+                colDifference !==
+                  previousColDirection
+              ) {
+                return;
+              }
+            }
+          }
+
+          selected.push(index);
+
+          cell.classList.add(
+            "selected"
+          );
+
+          const selectedPhonemes =
+            selected
+              .map(
+                (item) =>
+                  grid[item]
+              )
+              .join("");
+
+          const match =
+            words.find(
+              (word) =>
+                word.phonemes.join(
+                  ""
+                ) ===
+                selectedPhonemes
+            );
+
+          if (
+            match &&
+            !foundWords.includes(
+              match.english
+            )
+          ) {
+            foundWords.push(
+              match.english
+            );
+
+            document
+              .getElementById(
+                "word-" +
+                match.english
+              )
+              .classList.add(
+                "found"
+              );
+
+            setTimeout(
+              clearSelection,
+              500
+            );
+          }
         }
-
-        selected.push(index);
-        cell.classList.add("selected");
-
-        const selectedPhonemes =
-          selected
-            .map((item) => grid[item])
-            .join("");
-
-        const match = words.find(
-          (word) =>
-            word.phonemes.join("") === selectedPhonemes
-        );
-
-        if (
-          match &&
-          !foundWords.includes(match.english)
-        ) {
-          foundWords.push(match.english);
-
-          document
-            .getElementById("word-" + match.english)
-            .classList.add("found");
-
-          setTimeout(clearSelection, 500);
-        }
-      });
+      );
     });
 
     function clearSelection() {
       selected = [];
 
       cells.forEach((cell) => {
-        cell.classList.remove("selected");
+        cell.classList.remove(
+          "selected"
+        );
       });
     }
   </script>
@@ -349,7 +608,9 @@ export default function WordSearch() {
 
     const blob = new Blob(
       [html],
-      { type: "text/html" }
+      {
+        type: "text/html",
+      }
     );
 
     const url =
@@ -385,52 +646,66 @@ export default function WordSearch() {
             </h2>
 
             <p className="mb-4">
-              Click neighbouring phonemes in order to find each word.
+              Click neighbouring phonemes
+              in a straight line to find
+              each word.
             </p>
 
             <ul className="space-y-3">
 
-              {wordList.map((word) => (
-                <li
-                  key={word.english}
-                  className={`border rounded p-3 ${
-                    foundWords.includes(
+              {wordList.map(
+                (word) => (
+                  <li
+                    key={
                       word.english
-                    )
-                      ? "line-through font-bold"
-                      : ""
-                  }`}
-                >
-                  <strong>
-                    {word.english}
-                  </strong>
+                    }
+                    className={`border rounded p-3 ${
+                      foundWords.includes(
+                        word.english
+                      )
+                        ? "line-through font-bold"
+                        : ""
+                    }`}
+                  >
+                    <strong>
+                      {word.english}
+                    </strong>
 
-                  <div className="mt-1">
-                    {word.phonemes.join(" ")}
-                  </div>
-                </li>
-              ))}
+                    <div className="mt-1">
+                      {word.phonemes.join(
+                        " "
+                      )}
+                    </div>
+                  </li>
+                )
+              )}
 
             </ul>
 
             <div className="flex flex-wrap gap-3 mt-6">
 
               <button
-                onClick={generateNewGrid}
+                onClick={
+                  generateNewGrid
+                }
                 className="border rounded px-4 py-2"
               >
                 Generate New Grid
               </button>
 
               <button
-                onClick={clearSelection}
+                onClick={
+                  clearSelection
+                }
                 className="border rounded px-4 py-2"
               >
                 Clear Selection
               </button>
 
               <button
-                onClick={downloadWordSearch}
+                onClick={
+                  downloadWordSearch
+                }
                 className="border rounded px-4 py-2"
               >
                 Generate HTML
@@ -453,15 +728,22 @@ export default function WordSearch() {
               }}
             >
               {grid.map(
-                (row, rowIndex) =>
+                (
+                  row,
+                  rowIndex
+                ) =>
                   row.map(
-                    (phoneme, colIndex) => {
-
+                    (
+                      phoneme,
+                      colIndex
+                    ) => {
                       const selected =
                         selectedCells.some(
                           (cell) =>
-                            cell.row === rowIndex &&
-                            cell.col === colIndex
+                            cell.row ===
+                              rowIndex &&
+                            cell.col ===
+                              colIndex
                         );
 
                       return (
@@ -473,6 +755,7 @@ export default function WordSearch() {
                               colIndex
                             )
                           }
+                          aria-label={`Phoneme ${phoneme}`}
                           className={`w-10 h-10 border rounded flex items-center justify-center font-semibold ${
                             selected
                               ? "bg-yellow-400 text-black"
@@ -488,7 +771,8 @@ export default function WordSearch() {
             </div>
 
             <p className="text-center mt-5">
-              Found: {foundWords.length} /{" "}
+              Found:{" "}
+              {foundWords.length} /{" "}
               {wordList.length}
             </p>
 
