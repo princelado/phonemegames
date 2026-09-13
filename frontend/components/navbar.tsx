@@ -22,6 +22,10 @@ export default function Navbar() {
           <Link href="/word-search" className="hover:underline">
             Word Search
           </Link>
+
+          <Link href="/manage" className="hover:underline">
+            Manage Data
+          </Link>
         </div>
 
         <div className="relative">
