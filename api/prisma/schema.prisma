@@ -12,6 +12,14 @@ enum ActivityType {
   WORD_SEARCH
 }
 
+enum UsageEventType {
+  ACTIVITY_CREATED
+  GENERATION_SUCCESS
+  GENERATION_FAILED
+  PAGE_VIEW
+  PAGE_TIME
+}
+
 model Word {
   id         Int           @id @default(autoincrement())
   english    String        @unique @db.VarChar(60)
@@ -51,6 +59,7 @@ model Activity {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   words       ActivityWord[]
+  usageEvents UsageEvent[]
 }
 
 model ActivityWord {
@@ -62,4 +71,21 @@ model ActivityWord {
 
   @@id([activityId, wordId])
   @@index([wordId])
+}
+
+model UsageEvent {
+  id              Int            @id @default(autoincrement())
+  eventType       UsageEventType
+  activityType    ActivityType?
+  activityId      Int?
+  page            String?        @db.VarChar(120)
+  durationSeconds Float?
+  message         String?
+  createdAt       DateTime       @default(now())
+
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([activityType])
+  @@index([createdAt])
 }

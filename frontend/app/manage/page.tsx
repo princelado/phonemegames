@@ -1,6 +1,16 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  logUsageEvent,
+  usePageTiming,
+} from "@/lib/usage";
 
 type Word = {
   id: number;
@@ -22,14 +32,17 @@ type Activity = {
 };
 
 export default function ManageData() {
+  usePageTiming("/manage");
+
   const [words, setWords] = useState<Word[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [message, setMessage] = useState("");
 
-  const [editingWordId, setEditingWordId] = useState<number | null>(null);
-  const [editingActivityId, setEditingActivityId] = useState<number | null>(
-    null
-  );
+  const [editingWordId, setEditingWordId] =
+    useState<number | null>(null);
+
+  const [editingActivityId, setEditingActivityId] =
+    useState<number | null>(null);
 
   const [english, setEnglish] = useState("");
   const [phonemes, setPhonemes] = useState("");
@@ -38,13 +51,21 @@ export default function ManageData() {
   const [activityName, setActivityName] = useState("");
   const [activityType, setActivityType] =
     useState<"WORDLE" | "WORD_SEARCH">("WORDLE");
-  const [selectedWordIds, setSelectedWordIds] = useState<number[]>([]);
+
+  const [selectedWordIds, setSelectedWordIds] =
+    useState<number[]>([]);
 
   const load = useCallback(async () => {
-    const [wordResponse, activityResponse] = await Promise.all([
-      fetch("/api/words", { cache: "no-store" }),
-      fetch("/api/activities", { cache: "no-store" }),
-    ]);
+    const [wordResponse, activityResponse] =
+      await Promise.all([
+        fetch("/api/words", {
+          cache: "no-store",
+        }),
+
+        fetch("/api/activities", {
+          cache: "no-store",
+        }),
+      ]);
 
     const wordData = await wordResponse.json();
     const activityData = await activityResponse.json();
@@ -54,7 +75,6 @@ export default function ManageData() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -70,15 +90,21 @@ export default function ManageData() {
 
     const payload = {
       english,
-      phonemes: phonemes.split(/\s+/).filter(Boolean),
+      phonemes: phonemes
+        .split(/\s+/)
+        .filter(Boolean),
       hint,
     };
 
     const response = await fetch(
-      editingWordId ? `/api/words/${editingWordId}` : "/api/words",
+      editingWordId
+        ? `/api/words/${editingWordId}`
+        : "/api/words",
       {
         method: editingWordId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       }
     );
@@ -87,7 +113,9 @@ export default function ManageData() {
 
     setMessage(
       response.ok
-        ? `Word ${editingWordId ? "updated" : "created"} successfully.`
+        ? `Word ${
+            editingWordId ? "updated" : "created"
+          } successfully.`
         : data.error ?? "Request failed."
     );
 
@@ -118,14 +146,19 @@ export default function ManageData() {
       return;
     }
 
-    const response = await fetch(`/api/words/${id}`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `/api/words/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     const data = await response.json();
 
     setMessage(
-      response.ok ? "Word deleted." : data.error ?? "Delete failed."
+      response.ok
+        ? "Word deleted."
+        : data.error ?? "Delete failed."
     );
 
     await load();
@@ -145,15 +178,28 @@ export default function ManageData() {
     setSelectedWordIds(activity.wordIds);
 
     setTimeout(() => {
-      document.getElementById("activity-form")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      document
+        .getElementById("activity-form")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
     }, 0);
   }
 
-  async function submitActivity(event: FormEvent) {
+  async function submitActivity(
+    event: FormEvent
+  ) {
     event.preventDefault();
+
+    const creatingNewActivity =
+      editingActivityId === null;
+
+    const currentActivityType =
+      activityType;
+
+    const currentActivityName =
+      activityName;
 
     const payload = {
       name: activityName,
@@ -171,8 +217,12 @@ export default function ManageData() {
         ? `/api/activities/${editingActivityId}`
         : "/api/activities",
       {
-        method: editingActivityId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        method: editingActivityId
+          ? "PUT"
+          : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       }
     );
@@ -182,30 +232,55 @@ export default function ManageData() {
     setMessage(
       response.ok
         ? `Activity configuration ${
-            editingActivityId ? "updated" : "saved"
+            editingActivityId
+              ? "updated"
+              : "saved"
           }.`
         : data.error ?? "Request failed."
     );
 
     if (response.ok) {
+      if (creatingNewActivity) {
+        await logUsageEvent({
+          eventType: "ACTIVITY_CREATED",
+          activityType:
+            currentActivityType,
+          activityId:
+            data.activity?.id ??
+            data.id ??
+            undefined,
+          page: "/manage",
+          message: `Created ${currentActivityName}`,
+        });
+      }
+
       resetActivityForm();
       await load();
     }
   }
 
   async function removeActivity(id: number) {
-    if (!window.confirm("Delete this activity configuration?")) {
+    if (
+      !window.confirm(
+        "Delete this activity configuration?"
+      )
+    ) {
       return;
     }
 
-    const response = await fetch(`/api/activities/${id}`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `/api/activities/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     const data = await response.json();
 
     setMessage(
-      response.ok ? "Activity deleted." : data.error ?? "Delete failed."
+      response.ok
+        ? "Activity deleted."
+        : data.error ?? "Delete failed."
     );
 
     await load();
@@ -215,21 +290,28 @@ export default function ManageData() {
     <main className="p-8">
       <div className="max-w-6xl mx-auto space-y-10">
         <div>
-          <h1 className="text-4xl font-bold mb-3">Backend Data Manager</h1>
+          <h1 className="text-4xl font-bold mb-3">
+            Backend Data Manager
+          </h1>
 
           <p>
-            Create, read, update and delete database-backed words and activity
+            Create, read, update and delete
+            database-backed words and activity
             configurations.
           </p>
 
           {message && (
-            <p className="mt-4 border rounded p-3 font-medium">{message}</p>
+            <p className="mt-4 border rounded p-3 font-medium">
+              {message}
+            </p>
           )}
         </div>
 
         <section className="border rounded-lg p-6">
           <h2 className="text-2xl font-semibold mb-4">
-            {editingWordId ? "Edit Word" : "Create Word"}
+            {editingWordId
+              ? "Edit Word"
+              : "Create Word"}
           </h2>
 
           <form
@@ -241,7 +323,9 @@ export default function ManageData() {
               <input
                 className="block mt-1 border rounded px-3 py-2 w-full bg-transparent"
                 value={english}
-                onChange={(e) => setEnglish(e.target.value)}
+                onChange={(e) =>
+                  setEnglish(e.target.value)
+                }
                 required
               />
             </label>
@@ -251,7 +335,9 @@ export default function ManageData() {
               <input
                 className="block mt-1 border rounded px-3 py-2 w-full bg-transparent"
                 value={phonemes}
-                onChange={(e) => setPhonemes(e.target.value)}
+                onChange={(e) =>
+                  setPhonemes(e.target.value)
+                }
                 placeholder="t ɹ æɪ n"
                 required
               />
@@ -262,7 +348,9 @@ export default function ManageData() {
               <input
                 className="block mt-1 border rounded px-3 py-2 w-full bg-transparent"
                 value={hint}
-                onChange={(e) => setHint(e.target.value)}
+                onChange={(e) =>
+                  setHint(e.target.value)
+                }
                 placeholder="Optional hint"
               />
             </label>
@@ -272,7 +360,9 @@ export default function ManageData() {
                 className="border rounded px-4 py-2"
                 type="submit"
               >
-                {editingWordId ? "Save Changes" : "Add Word"}
+                {editingWordId
+                  ? "Save Changes"
+                  : "Add Word"}
               </button>
 
               {editingWordId && (
@@ -289,16 +379,29 @@ export default function ManageData() {
         </section>
 
         <section className="border rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-4">Stored Words</h2>
+          <h2 className="text-2xl font-semibold mb-4">
+            Stored Words
+          </h2>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="border p-2">Word</th>
-                  <th className="border p-2">Phonemes</th>
-                  <th className="border p-2">Hint</th>
-                  <th className="border p-2">Actions</th>
+                  <th className="border p-2">
+                    Word
+                  </th>
+
+                  <th className="border p-2">
+                    Phonemes
+                  </th>
+
+                  <th className="border p-2">
+                    Hint
+                  </th>
+
+                  <th className="border p-2">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -321,14 +424,18 @@ export default function ManageData() {
                       <div className="flex gap-2">
                         <button
                           className="border rounded px-3 py-1"
-                          onClick={() => editWord(word)}
+                          onClick={() =>
+                            editWord(word)
+                          }
                         >
                           Edit
                         </button>
 
                         <button
                           className="border rounded px-3 py-1"
-                          onClick={() => removeWord(word.id)}
+                          onClick={() =>
+                            removeWord(word.id)
+                          }
                         >
                           Delete
                         </button>
@@ -358,27 +465,40 @@ export default function ManageData() {
             <div className="grid gap-4 md:grid-cols-2">
               <label>
                 Activity name
+
                 <input
                   className="block mt-1 border rounded px-3 py-2 w-full bg-transparent"
                   value={activityName}
-                  onChange={(e) => setActivityName(e.target.value)}
+                  onChange={(e) =>
+                    setActivityName(
+                      e.target.value
+                    )
+                  }
                   required
                 />
               </label>
 
               <label>
                 Type
+
                 <select
                   className="block mt-1 border rounded px-3 py-2 w-full bg-transparent"
                   value={activityType}
                   onChange={(e) =>
                     setActivityType(
-                      e.target.value as "WORDLE" | "WORD_SEARCH"
+                      e.target.value as
+                        | "WORDLE"
+                        | "WORD_SEARCH"
                     )
                   }
                 >
-                  <option value="WORDLE">Wordle</option>
-                  <option value="WORD_SEARCH">Word Search</option>
+                  <option value="WORDLE">
+                    Wordle
+                  </option>
+
+                  <option value="WORD_SEARCH">
+                    Word Search
+                  </option>
                 </select>
               </label>
             </div>
@@ -396,17 +516,28 @@ export default function ManageData() {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedWordIds.includes(word.id)}
+                      checked={selectedWordIds.includes(
+                        word.id
+                      )}
                       onChange={(e) =>
-                        setSelectedWordIds((current) =>
-                          e.target.checked
-                            ? [...current, word.id]
-                            : current.filter((id) => id !== word.id)
+                        setSelectedWordIds(
+                          (current) =>
+                            e.target.checked
+                              ? [
+                                  ...current,
+                                  word.id,
+                                ]
+                              : current.filter(
+                                  (id) =>
+                                    id !==
+                                    word.id
+                                )
                         )
                       }
                     />
 
-                    {word.english} / {word.phonemes.join(" ")}
+                    {word.english} /{" "}
+                    {word.phonemes.join(" ")}
                   </label>
                 ))}
               </div>
@@ -417,14 +548,18 @@ export default function ManageData() {
                 className="border rounded px-4 py-2"
                 type="submit"
               >
-                {editingActivityId ? "Save Changes" : "Save Activity"}
+                {editingActivityId
+                  ? "Save Changes"
+                  : "Save Activity"}
               </button>
 
               {editingActivityId && (
                 <button
                   className="border rounded px-4 py-2"
                   type="button"
-                  onClick={resetActivityForm}
+                  onClick={
+                    resetActivityForm
+                  }
                 >
                   Cancel
                 </button>
@@ -439,40 +574,60 @@ export default function ManageData() {
           </h2>
 
           <div className="space-y-3">
-            {activities.map((activity) => (
-              <div
-                key={activity.id}
-                className="border rounded p-4 flex flex-wrap justify-between gap-3"
-              >
-                <div>
-                  <strong>{activity.name}</strong>
-
+            {activities.map(
+              (activity) => (
+                <div
+                  key={activity.id}
+                  className="border rounded p-4 flex flex-wrap justify-between gap-3"
+                >
                   <div>
-                    {activity.type === "WORDLE"
-                      ? "Wordle"
-                      : "Word Search"}{" "}
-                    · {activity.wordIds.length} words ·{" "}
-                    {activity.difficulty}
+                    <strong>
+                      {activity.name}
+                    </strong>
+
+                    <div>
+                      {activity.type ===
+                      "WORDLE"
+                        ? "Wordle"
+                        : "Word Search"}{" "}
+                      ·{" "}
+                      {
+                        activity.wordIds
+                          .length
+                      }{" "}
+                      words ·{" "}
+                      {
+                        activity.difficulty
+                      }
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      className="border rounded px-3 py-1"
+                      onClick={() =>
+                        editActivity(
+                          activity
+                        )
+                      }
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="border rounded px-3 py-1"
+                      onClick={() =>
+                        removeActivity(
+                          activity.id
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex gap-2">
-                  <button
-                    className="border rounded px-3 py-1"
-                    onClick={() => editActivity(activity)}
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    className="border rounded px-3 py-1"
-                    onClick={() => removeActivity(activity.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         </section>
       </div>
