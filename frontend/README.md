@@ -1,7 +1,42 @@
-# Phoneme Games Frontend
+# Phoneme Games API
 
-This is the Next.js frontend carried forward from Assessment 1 and extended for Assessment 2.
+Separate Next.js API service for CSE3CWA Assessment 3: Data-driven Application and Reporting.
 
-The visual layout and existing Wordle/Word Search interaction style have been kept consistent with the original project. Backend requests are made through `/api/*` and proxied to the separate API service configured in `next.config.ts`.
+The API uses Prisma ORM with PostgreSQL and provides backend services for the Phoneme Games application.
 
-See the root `README.md` for full project setup and Docker instructions.
+## Features
+
+- CRUD API routes for words and activity configurations
+- PostgreSQL database persistence
+- Prisma ORM
+- Ordered phoneme storage with support for multi-character phonemes
+- Wordle and Word Search activity configurations
+- Usage-event tracking
+- Successful and failed generation tracking
+- Page view and page-time tracking
+- Activity creation tracking
+- Dashboard reporting statistics
+- Recent activity reporting
+- API and database health monitoring
+- `/health` endpoint
+
+## Assessment 3 Observability
+
+Assessment 3 extends the API with persistent usage events that support the application dashboard.
+
+Tracked events include:
+
+- `ACTIVITY_CREATED`
+- `GENERATION_SUCCESS`
+- `GENERATION_FAILED`
+- `PAGE_VIEW`
+- `PAGE_TIME`
+
+These records are stored in PostgreSQL and used to calculate dashboard statistics such as generation counts, average time on page, page views, recent activity and most-used activity type.
+
+## Health Check
+
+The API exposes:
+
+```text
+http://localhost:3001/health
