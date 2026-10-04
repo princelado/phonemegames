@@ -16,8 +16,12 @@ export default function About() {
           </p>
 
           <p>
-            Assessment 2 extends the original frontend application with a
-            backend API, PostgreSQL database, Prisma ORM and Docker support.
+            The project has been developed across the Cloud-Based Web
+            Applications assessments. Assessment 1 focused on the frontend,
+            Assessment 2 introduced the backend API, PostgreSQL database,
+            Prisma ORM, CRUD functionality and Docker support, and
+            Assessment 3 adds data-driven reporting, observability and
+            testing.
           </p>
 
           <p>
@@ -29,6 +33,20 @@ export default function About() {
             Teachers can create and manage words, configure activity sets,
             preview activities, and generate standalone HTML files that can
             be opened in a normal web browser.
+          </p>
+
+          <p>
+            Assessment 3 introduces a reporting dashboard that tracks
+            application usage, including page views, time on page,
+            successful and failed generations, activity creation and
+            recent activity. The application also includes API and database
+            health monitoring.
+          </p>
+
+          <p>
+            The final application has also been evaluated using Playwright
+            for end-to-end testing, Apache JMeter for load testing, and
+            Google Lighthouse for accessibility testing.
           </p>
 
           <div className="border-t pt-4">
@@ -51,8 +69,10 @@ export default function About() {
             </h2>
 
             <p>
-              A short video demonstration explains the backend, database,
-              CRUD functionality, activity generation and Docker setup.
+              A short video demonstration explains the full application,
+              including the database-backed activities, dashboard,
+              observability, automated testing, load testing and
+              accessibility results.
             </p>
           </div>
 
